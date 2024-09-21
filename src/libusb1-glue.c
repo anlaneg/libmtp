@@ -71,7 +71,7 @@ static inline int get_timeout(PTP_USB* ptp_usb)
 /* Internal data types */
 struct mtpdevice_list_struct {
   libusb_device *device;
-  PTPParams *params;
+  PTPParams *params;/*设备参数*/
   PTP_USB *ptp_usb;
   uint32_t bus_location;
   struct mtpdevice_list_struct *next;
@@ -86,6 +86,7 @@ struct ptp_event_cb_data {
   PTPParams *params;
 };
 
+/*mtp设备列表*/
 static const LIBMTP_device_entry_t mtp_device_table[] = {
 /* We include an .h file which is shared between us and libgphoto2 */
 #include "music-players.h"
@@ -153,6 +154,7 @@ static LIBMTP_error_number_t init_usb()
    * We use the same level debug between MTP and USB.
    */
   if (libusb1_initialized)
+	  /*重复初始化*/
      return LIBMTP_ERROR_NONE;
 
   if (libusb_init(&libmtp_libusb_context) < 0) {
@@ -181,6 +183,7 @@ static mtpdevice_list_t *append_to_mtpdevice_list(mtpdevice_list_t *devlist,
 						  libusb_device *newdevice,
 						  uint32_t bus_location)
 {
+	/*将newdevice添加进devlist中*/
   mtpdevice_list_t *new_list_entry;
 
   new_list_entry = (mtpdevice_list_t *) malloc(sizeof(mtpdevice_list_t));
@@ -259,6 +262,7 @@ static int probe_device_descriptor(libusb_device *dev, FILE *dumpfile)
 	desc.bDeviceClass == LIBUSB_CLASS_PTP ||
 	desc.bDeviceClass == 0xEF ||	/* Intf. Association Desc.*/
 	desc.bDeviceClass == LIBUSB_CLASS_VENDOR_SPEC)) {
+	  /*设备没有mtp接口*/
     return 0;
   }
 
@@ -286,12 +290,14 @@ static int probe_device_descriptor(libusb_device *dev, FILE *dumpfile)
      uint8_t j;
      struct libusb_config_descriptor *config;
 
+     /*取i号配置描述*/
      ret = libusb_get_config_descriptor (dev, i, &config);
      if (ret != LIBUSB_SUCCESS) {
        LIBMTP_INFO("configdescriptor %d get failed with ret %d in probe_device_descriptor yet dev->descriptor.bNumConfigurations > 0\n", i, ret);
        continue;
      }
 
+     /*遍历这个配置支持的所有interface接口*/
      for (j = 0; j < config->bNumInterfaces; j++) {
         int k;
         for (k = 0; k < config->interface[j].num_altsetting; k++) {
@@ -304,6 +310,7 @@ static int probe_device_descriptor(libusb_device *dev, FILE *dumpfile)
 	   * interrupt. Don't probe anything else.
 	   */
 	  if (intf->bNumEndpoints != 3)
+		  /*mtp接口一定有三个endpoint*/
 	    continue;
 
 	  /*
@@ -352,6 +359,7 @@ static int probe_device_descriptor(libusb_device *dev, FILE *dumpfile)
 	  if (ret < 3)
 	    continue;
           if (strstr((char *) buf, "MTP") != NULL) {
+        	  /*接口描述里有指出MTP*/
 	    if (dumpfile != NULL) {
               fprintf(dumpfile, "Configuration %d, interface %d, altsetting %d:\n", i, j, k);
 	      fprintf(dumpfile, "   Interface description contains the string \"MTP\"\n");
@@ -526,13 +534,14 @@ static LIBMTP_error_number_t get_mtp_usb_device_list(mtpdevice_list_t ** mtp_dev
   if (init_usb_ret != LIBMTP_ERROR_NONE)
     return init_usb_ret;
 
+  /*获得所有usb设备*/
   nrofdevs = libusb_get_device_list (libmtp_libusb_context, &devs);
   for (i = 0; i < nrofdevs ; i++) {
       libusb_device *dev = devs[i];
       struct libusb_device_descriptor desc;
 
       ret = libusb_get_device_descriptor(dev, &desc);
-      if (ret != LIBUSB_SUCCESS) continue;
+      if (ret != LIBUSB_SUCCESS) continue;/*忽略掉没有拿到descript的设备*/
 
       if (desc.bDeviceClass != LIBUSB_CLASS_HUB) {
 	int i;
@@ -544,6 +553,7 @@ static LIBMTP_error_number_t get_mtp_usb_device_list(mtpdevice_list_t ** mtp_dev
         for(i = 0; i < mtp_device_table_size; i++) {
           if(desc.idVendor == mtp_device_table[i].vendor_id &&
             desc.idProduct == mtp_device_table[i].product_id) {
+        	  /*vendor与product匹配，添加进mtp devcie中*/
             /* Append this usb device to the MTP device list */
             *mtp_device_list = append_to_mtpdevice_list(*mtp_device_list,
 							dev,
@@ -554,6 +564,7 @@ static LIBMTP_error_number_t get_mtp_usb_device_list(mtpdevice_list_t ** mtp_dev
         }
 	// If we didn't know it, try probing the "OS Descriptor".
         if (!found) {
+        	/*在mtp_device_table中查询失败，在设备上进行检查*/
           if (probe_device_descriptor(dev, NULL)) {
             /* Append this usb device to the MTP USB Device List */
             *mtp_device_list = append_to_mtpdevice_list(*mtp_device_list,
@@ -630,7 +641,7 @@ int LIBMTP_Check_Specific_Device(int busno, int devno)
  *        be 0.
  * @return 0 if successful, any other value means failure.
  */
-LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices,
+LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices/*出参，返回所有mtp usb设备*/,
 			      int * numdevs)
 {
   mtpdevice_list_t *devlist = NULL;
@@ -640,6 +651,7 @@ LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices,
   int devs = 0;
   int i, j;
 
+  /*取所有mtp use devices*/
   ret = get_mtp_usb_device_list(&devlist);
   if (ret == LIBMTP_ERROR_NO_DEVICE_ATTACHED) {
     *devices = NULL;
@@ -654,10 +666,11 @@ LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices,
   // Get list size
   dev = devlist;
   while (dev != NULL) {
-    devs++;
+    devs++;/*list长度增加*/
     dev = dev->next;
   }
   if (devs == 0) {
+	  /*没有这类设备*/
     *devices = NULL;
     *numdevs = 0;
     return LIBMTP_ERROR_NONE;
@@ -676,7 +689,7 @@ LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices,
     int device_known = 0;
     struct libusb_device_descriptor desc;
 
-    libusb_get_device_descriptor (dev->device, &desc);
+    libusb_get_device_descriptor (dev->device, &desc/*出参，设备描述信息*/);
     // Assign default device info
     retdevs[i].device_entry.vendor = NULL;
     retdevs[i].device_entry.vendor_id = desc.idVendor;
@@ -688,7 +701,7 @@ LIBMTP_error_number_t LIBMTP_Detect_Raw_Devices(LIBMTP_raw_device_t ** devices,
       if(desc.idVendor == mtp_device_table[j].vendor_id &&
 	 desc.idProduct == mtp_device_table[j].product_id) {
 	device_known = 1;
-	retdevs[i].device_entry.vendor = mtp_device_table[j].vendor;
+	retdevs[i].device_entry.vendor = mtp_device_table[j].vendor;/*设置vendor id*/
 	retdevs[i].device_entry.product = mtp_device_table[j].product;
 	retdevs[i].device_entry.device_flags = mtp_device_table[j].device_flags;
 
@@ -2139,11 +2152,12 @@ static int find_interface_and_endpoints(libusb_device *dev,
     uint8_t j;
     struct libusb_config_descriptor *config;
 
+    /*取i号配置*/
     ret = libusb_get_config_descriptor(dev, i, &config);
     if (ret != LIBUSB_SUCCESS)
       continue;
 
-    *conf = config->bConfigurationValue;
+    *conf = config->bConfigurationValue;/*取配置值*/
 
     // Loop over each configurations interfaces
     for (j = 0; j < config->bNumInterfaces; j++) {
@@ -2225,20 +2239,25 @@ LIBMTP_error_number_t configure_usb_device(LIBMTP_raw_device_t *device,
   /* See if we can find this raw device again... */
   init_usb_ret = init_usb();
   if (init_usb_ret != LIBMTP_ERROR_NONE)
+	  /*除none外其它错误自此返回*/
     return init_usb_ret;
 
+  /*列出所有设备*/
   nrofdevs = libusb_get_device_list(libmtp_libusb_context, &devs);
   for (i = 0; i < nrofdevs ; i++) {
+	  /*忽略掉非本次配置的设备*/
     if (libusb_get_bus_number(devs[i]) != device->bus_location)
       continue;
     if (libusb_get_device_address(devs[i]) != device->devnum)
       continue;
 
+    /*找到此设备，取其描述信息*/
     ret = libusb_get_device_descriptor(devs[i], &desc);
     if (ret != LIBUSB_SUCCESS) continue;
 
     if(desc.idVendor  == device->device_entry.vendor_id &&
        desc.idProduct == device->device_entry.product_id ) {
+    	/*检查product,vendor,确认此设备仍在*/
 	  ldevice = devs[i];
 	  found = 1;
 	  break;
@@ -2246,6 +2265,7 @@ LIBMTP_error_number_t configure_usb_device(LIBMTP_raw_device_t *device,
   }
   /* Device has gone since detecting raw devices! */
   if (!found) {
+	  /*设备已不存在*/
     libusb_free_device_list (devs, 0);
     return LIBMTP_ERROR_NO_DEVICE_ATTACHED;
   }
@@ -2253,6 +2273,7 @@ LIBMTP_error_number_t configure_usb_device(LIBMTP_raw_device_t *device,
   /* Allocate structs */
   ptp_usb = (PTP_USB *) malloc(sizeof(PTP_USB));
   if (ptp_usb == NULL) {
+	  /*申请ptp usb*/
     libusb_free_device_list (devs, 0);
     return LIBMTP_ERROR_MEMORY_ALLOCATION;
   }
@@ -2294,6 +2315,7 @@ LIBMTP_error_number_t configure_usb_device(LIBMTP_raw_device_t *device,
 
   /* Attempt to initialize this device */
   if (init_ptp_usb(params, ptp_usb, ldevice) < 0) {
+	  /*初始化ptp usb失败*/
     free (ptp_usb);
     LIBMTP_ERROR("LIBMTP PANIC: Unable to initialize device\n");
     libusb_free_device_list (devs, 0);

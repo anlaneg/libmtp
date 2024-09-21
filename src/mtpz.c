@@ -130,6 +130,7 @@ int mtpz_loaddata()
 
 	FILE *fdata = fopen(path, "r");
 	if (!fdata)
+		/*文件不存在*/
 		return ret;
 
 	// Should only be six characters in length, but fgets will encounter a newline and stop.

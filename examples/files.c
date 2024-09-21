@@ -37,6 +37,7 @@ static void dump_fileinfo(LIBMTP_file_t *file)
 #ifdef __WIN32__
     printf("   File size %llu (0x%016I64X) bytes\n", file->filesize, file->filesize);
 #else
+    /*文件大小*/
     printf("   File size %llu (0x%016llX) bytes\n",
 	   (long long unsigned int) file->filesize,
 	   (long long unsigned int) file->filesize);
@@ -65,8 +66,10 @@ dump_files(LIBMTP_mtpdevice_t *device, uint32_t storageid, int leaf)
     while (file != NULL) {
       /* Please don't print these */
       if (file->filetype == LIBMTP_FILETYPE_FOLDER) {
+    	  /*遇到目录*/
 	dump_files(device, storageid, file->item_id);
       } else {
+    	  /*显示文件信息*/
 	dump_fileinfo(file);
       }
       tmp = file;
@@ -85,8 +88,9 @@ int main(int argc, char **argv)
 
   fprintf(stdout, "libmtp version: " LIBMTP_VERSION_STRING "\n\n");
 
-  LIBMTP_Init();
+  LIBMTP_Init();/*mtp初始化*/
 
+  /*获取所有mtp设备*/
   err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
   switch(err)
   {
@@ -121,6 +125,7 @@ int main(int argc, char **argv)
     PTPParams *params;
     char *friendlyname;
 
+    /*尝试连接到mtp设备*/
     device = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[i]);
     if (device == NULL) {
       fprintf(stderr, "Unable to open raw device %d\n", i);

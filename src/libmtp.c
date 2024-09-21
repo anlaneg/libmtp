@@ -320,6 +320,7 @@ static int register_filetype(char const * const description, LIBMTP_filetype_t c
   current = g_filemap;
   while (current != NULL) {
     if(current->id == id) {
+    	/*id匹配，已存在*/
       break;
     }
     current = current->next;
@@ -327,11 +328,13 @@ static int register_filetype(char const * const description, LIBMTP_filetype_t c
 
   // Create the entry
   if(current == NULL) {
+	  /*不存在，申请一个新的entry*/
     new = new_filemap_entry();
     if(new == NULL) {
       return 1;
     }
 
+    /*填充entry*/
     new->id = id;
     if(description != NULL) {
       new->description = strdup(description);
@@ -340,14 +343,16 @@ static int register_filetype(char const * const description, LIBMTP_filetype_t c
 
     // Add the entry to the list
     if(g_filemap == NULL) {
-      g_filemap = new;
+      g_filemap = new;/*设置首个元素*/
     } else {
+    	/*加入链表*/
       current = g_filemap;
       while (current->next != NULL ) current=current->next;
       current->next = new;
     }
     // Update the existing entry
   } else {
+	  /*更新entry*/
     if (current->description != NULL) {
       free(current->description);
     }
@@ -363,6 +368,7 @@ static int register_filetype(char const * const description, LIBMTP_filetype_t c
 
 static void init_filemap()
 {
+	/*初始化g_filemap*/
   register_filetype("Folder", LIBMTP_FILETYPE_FOLDER, PTP_OFC_Association);
   register_filetype("MediaCard", LIBMTP_FILETYPE_MEDIACARD, PTP_OFC_MTP_MediaCard);
   register_filetype("RIFF WAVE file", LIBMTP_FILETYPE_WAV, PTP_OFC_WAV);
@@ -534,6 +540,7 @@ static int register_property(char const * const description, LIBMTP_property_t c
 
 static void init_propertymap()
 {
+	/*初始化propertymap*/
   register_property("Storage ID", LIBMTP_PROPERTY_StorageID, PTP_OPC_StorageID);
   register_property("Object Format", LIBMTP_PROPERTY_ObjectFormat, PTP_OPC_ObjectFormat);
   register_property("Protection Status", LIBMTP_PROPERTY_ProtectionStatus, PTP_OPC_ProtectionStatus);
@@ -775,6 +782,7 @@ void LIBMTP_Init(void)
 {
   const char *env_debug = getenv("LIBMTP_DEBUG");
   if (env_debug) {
+	  /*LIBMTP_DEBUG被配置*/
     const long debug_flags = strtol(env_debug, NULL, 0);
     if (debug_flags != LONG_MIN && debug_flags != LONG_MAX &&
         INT_MIN <= debug_flags && debug_flags <= INT_MAX) {
@@ -789,7 +797,7 @@ void LIBMTP_Init(void)
   init_propertymap();
 
   if (mtpz_loaddata() == -1)
-    use_mtpz = 0;
+    use_mtpz = 0;/*禁止mtpz*/
   else
     use_mtpz = 1;
 
@@ -1805,6 +1813,7 @@ __attribute__((__format__(printf,2,0)))
 #endif
 LIBMTP_ptp_debug(void *data, const char *format, va_list args)
 {
+	/*debug函数*/
   if ((LIBMTP_debug & LIBMTP_DEBUG_PTP) != 0) {
     vfprintf (stderr, format, args);
     fprintf (stderr, "\n");
@@ -1822,6 +1831,7 @@ __attribute__((__format__(printf,2,0)))
 #endif
 LIBMTP_ptp_error(void *data, const char *format, va_list args)
 {
+	/*libmtp错误输出函数*/
   // if (data == NULL) {
     vfprintf (stderr, format, args);
     fflush (stderr);
@@ -1931,6 +1941,7 @@ LIBMTP_mtpdevice_t *LIBMTP_Open_Raw_Device_Uncached(LIBMTP_raw_device_t *rawdevi
   mtp_device = (LIBMTP_mtpdevice_t *) malloc(sizeof(LIBMTP_mtpdevice_t));
   /* Check if there was a memory allocation error */
   if(mtp_device == NULL) {
+	  /*申请内存失败，报错*/
     /* There has been an memory allocation error. We are going to ignore this
        device and attempt to continue */
 
@@ -1948,6 +1959,7 @@ LIBMTP_mtpdevice_t *LIBMTP_Open_Raw_Device_Uncached(LIBMTP_raw_device_t *rawdevi
   /* Create PTP params */
   current_params = (PTPParams *) malloc(sizeof(PTPParams));
   if (current_params == NULL) {
+	  /*申请ptp参数失败*/
     free(mtp_device);
     return NULL;
   }
@@ -1964,7 +1976,7 @@ LIBMTP_mtpdevice_t *LIBMTP_Open_Raw_Device_Uncached(LIBMTP_raw_device_t *rawdevi
   current_params->debug_func = LIBMTP_ptp_debug;
   current_params->error_func = LIBMTP_ptp_error;
   /* TODO: Will this always be little endian? */
-  current_params->byteorder = PTP_DL_LE;
+  current_params->byteorder = PTP_DL_LE;/*标记为小端*/
 #if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
   current_params->cd_locale_to_ucs2 = iconv_open("UTF-16LE", "UTF-8");
   current_params->cd_ucs2_to_locale = iconv_open("UTF-8", "UTF-16LE");
@@ -1978,7 +1990,7 @@ LIBMTP_mtpdevice_t *LIBMTP_Open_Raw_Device_Uncached(LIBMTP_raw_device_t *rawdevi
     return NULL;
   }
 #endif
-  mtp_device->params = current_params;
+  mtp_device->params = current_params;/*设置设备参数*/
 
   /* Create usbinfo, this also opens the session */
   err = configure_usb_device(rawdevice,
@@ -4636,6 +4648,7 @@ LIBMTP_file_t * LIBMTP_Get_Files_And_Folders(LIBMTP_mtpdevice_t *device,
     LIBMTP_file_t *file;
 
     // Get metadata for one file, if it fails, try next file
+    /*取文件源数据*/
     file = LIBMTP_Get_Filemetadata(device, currentHandles.Handler[i]);
     if (file == NULL)
       continue;

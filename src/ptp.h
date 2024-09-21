@@ -3618,8 +3618,8 @@ struct _PTPParams {
 	PTPIODevStatReq	devstatreq_func;
 
 	/* Custom error and debug function */
-	PTPErrorFunc	error_func;
-	PTPDebugFunc	debug_func;
+	PTPErrorFunc	error_func;/*error输出函数*/
+	PTPDebugFunc	debug_func;/*debug输出函数*/
 
 	/* Data passed to above functions */
 	void		*data;
